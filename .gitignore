@@ -1,0 +1,25 @@
+# Python
+venv/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Built / generated
+vector_db/
+frontend/dist/
+node_modules/
+
+# Secrets and local config
+.env
+**/.env
+
+# Personal data and local files not needed in the repo
+data/
+documents/*.pdf
+chatbot_project_status.xlsx
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/

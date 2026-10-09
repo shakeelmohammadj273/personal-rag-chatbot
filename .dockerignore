@@ -1,0 +1,10 @@
+.git
+**/__pycache__
+**/node_modules
+**/.venv
+venv
+vector_db
+data
+frontend/dist
+**/.env
+documents/*.pdf

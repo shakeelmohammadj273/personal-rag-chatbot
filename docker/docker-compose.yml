@@ -1,0 +1,70 @@
+# Run from this folder:  docker compose up --build        Open: http://localhost:8080
+# The first start downloads the LLM (about 2 GB) into the "ollama_data" volume.
+services:
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    # NVIDIA GPU (needs the NVIDIA Container Toolkit): uncomment
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+  ollama-pull:                       # one-shot: downloads the model, then exits
+    image: ollama/ollama:latest
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    entrypoint: ["ollama", "pull", "${LLM_MODEL:-llama3.2}"]
+    restart: "no"
+
+  backend:
+    build:
+      context: ..
+      dockerfile: docker/backend.Dockerfile
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+      # Windows with a GPU? Ollama installed on the host usually uses it directly.
+      # Then delete the "ollama" and "ollama-pull" services and use:
+      # - OLLAMA_HOST=http://host.docker.internal:11434
+      - LLM_MODEL=${LLM_MODEL:-llama3.2}
+      - APP_ENV=production
+      - RATE_LIMIT_PER_MINUTE=${RATE_LIMIT_PER_MINUTE:-10}
+      - PREWARM=${PREWARM:-1}
+    depends_on:
+      ollama:
+        condition: service_healthy
+      ollama-pull:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    expose:
+      - "8000"                       # internal only; not published to the host
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: docker/frontend.Dockerfile
+    ports:
+      - "8080:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  ollama_data:
